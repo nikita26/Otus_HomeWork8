@@ -1,15 +1,18 @@
 ﻿using System.Diagnostics;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 #region Init array
-var arrayCount = 10000000;
+Console.WriteLine("Генерация массива ...");
+var arrayCount = 100000; 
 var array = new int[arrayCount];
 
+var rnd = new Random();
 for (int i = 0; i < arrayCount; i++)
-    array[i] = new Random().Next(-10000, 10000);
+    array[i] = rnd.Next(-10000, 10000);
 #endregion
 
 
-Console.WriteLine($"Размер {arrayCount}");
+Console.WriteLine($"Массив размером {arrayCount} элементов готов");
 
 Console.WriteLine(Summ(array));
 Console.WriteLine(SummThread(array));
@@ -31,27 +34,44 @@ int Summ(int[] arr)
 
 int SummThread(int[] arr)
 {
-    var me = new ManualResetEvent(false);
-    var timer2 = new Stopwatch();
-    var threadCount = arr.Length-1;
-    var threads = new List<Thread>();
-    var sumLock = new object();
-
-    timer2.Start();
     var sum = 0;
-    foreach (var item in arr)
-        new Thread(() => {
+    var sumLock = new object();
+    var list = arr.ToList();
+
+    var me = new ManualResetEvent(false);
+    var threadCount = 10;
+
+    var timer2 = new Stopwatch();
+    timer2.Start();
+
+    int step = list.Count / threadCount;
+
+    var threadData = new List<int[]>();
+    for (int t = 0; t < threadCount; t++)
+        threadData.Add(list.GetRange(step * t, step).ToArray());
+
+    if (list.Count > step * threadCount)
+    {
+        threadData.Add(list.GetRange(step * threadCount, list.Count - (step * threadCount)).ToArray());
+        threadCount++;
+    }
+
+    foreach (var data in threadData)
+        new Thread(() =>
+        {
+            var s = 0;
+            foreach (var d in data)
+                s += d;
             lock (sumLock)
-                sum += item;
+                sum += s;
             if (Interlocked.Decrement(ref threadCount) == 0)
                 me.Set();
-        }).Start();
-
+        })
+        .Start();
 
     me.WaitOne();
     timer2.Stop();
     Console.WriteLine($"Многопоточное выполнение (Thread) {timer2.ElapsedMilliseconds / (double)1000} сек");
-
     return sum;
 }
 
