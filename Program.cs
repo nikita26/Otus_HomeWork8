@@ -38,8 +38,8 @@ int SummThread(int[] arr)
     var sumLock = new object();
     var list = arr.ToList();
 
-    var me = new ManualResetEvent(false);
     var threadCount = 10;
+
 
     var timer2 = new Stopwatch();
     timer2.Start();
@@ -56,20 +56,20 @@ int SummThread(int[] arr)
         threadCount++;
     }
 
+    var b = new Barrier(threadCount+1);
+
     foreach (var data in threadData)
         new Thread(() =>
         {
             var s = 0;
             foreach (var d in data)
                 s += d;
-            lock (sumLock)
-                sum += s;
-            if (Interlocked.Decrement(ref threadCount) == 0)
-                me.Set();
+            sum += s;
+            b.SignalAndWait();
         })
         .Start();
 
-    me.WaitOne();
+    b.SignalAndWait();
     timer2.Stop();
     Console.WriteLine($"Многопоточное выполнение (Thread) {timer2.ElapsedMilliseconds / (double)1000} сек");
     return sum;
